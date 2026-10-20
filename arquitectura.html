@@ -1,0 +1,15 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Arquitectura · 0xhacky</title><link rel="stylesheet" href="estilo.css">
+<style>.caja{border:2px solid #5EC8D8;border-radius:12px;padding:12px 16px;margin:8px 0;background:#2B3038}.flecha{text-align:center;color:#5EC8D8;font-size:26px;margin:0}.g{border-color:#3DD68C}.y{border-color:#FF5C6C}</style></head><body><main>
+<h1>Cómo funciona "0xhacky publicador"</h1>
+<p>Herramienta interna, sin interfaz pública y sin otros usuarios. Solo publica los videos del propio canal 0xhacky.</p>
+<h2>Arquitectura</h2>
+<div class="caja">1. Guion del video (archivo JSON en un repositorio privado de GitHub)</div><p class="flecha">↓</p>
+<div class="caja">2. GitHub Actions renderiza el video vertical (Remotion, 1080x1920) a la hora programada</div><p class="flecha">↓</p>
+<div class="caja g">3. Se pide un access token a Google con el refresh token del canal (guardado cifrado como secreto de GitHub)</div><p class="flecha">↓</p>
+<div class="caja y">4. YouTube Data API v3: <code>videos.insert</code> (subida reanudable del MP4 con título, descripción y etiquetas) y <code>channels.list</code> (comprobar el canal)</div><p class="flecha">↓</p>
+<div class="caja">5. El Short queda publicado en youtube.com/@0xhacky; el enlace se guarda en el repositorio</div>
+<h2>Flujo del usuario (único usuario: el dueño del canal)</h2>
+<ol><li>Una sola vez, el dueño autoriza la app con OAuth 2.0 (pantalla de consentimiento de Google, permisos <code>youtube.upload</code> y <code>youtube.readonly</code>).</li><li>El refresh token se guarda directamente como secreto cifrado; nadie lo ve.</li><li>Cada día, el sistema sube los videos del canal sin intervención.</li><li>El dueño puede revocar el acceso en myaccount.google.com/permissions; desde ese momento la herramienta deja de funcionar.</li></ol>
+<h2>Datos</h2><p>No se leen ni guardan datos de espectadores ni de otros canales. Ver la <a href="privacidad.html">política de privacidad</a>.</p>
+<p><a href="index.html">Inicio</a></p>
+</main></body></html>
