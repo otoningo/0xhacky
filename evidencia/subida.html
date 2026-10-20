@@ -1,0 +1,21 @@
+<!doctype html><html><head><meta charset="utf-8"><style>body{background:#0d1117;color:#e6edf3;font:15px/1.5 Consolas,monospace;margin:0;padding:24px;width:1000px}h2{font:600 20px system-ui;color:#5EC8D8}pre{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:14px;white-space:pre-wrap}.ok{color:#3DD68C}</style></head><body>
+<h2>Upload interface: GitHub Actions workflow "Publicar reel" (repo otoningo/hackrlarp-reels)</h2>
+<pre>- name: Subir a YouTube (API oficial)
+  env:
+    YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+    YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+    YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+  run: node scripts/publicar-youtube.mjs "$EP" out/reel.mp4</pre>
+<h2>What the tool sends (scripts/publicar-youtube.mjs)</h2>
+<pre>POST https://oauth2.googleapis.com/token            (refresh_token -> access_token)
+GET  https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true
+POST https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status
+     snippet: { title, description (+ #Shorts), tags, categoryId: "28", defaultLanguage: "es" }
+     status:  { privacyStatus: "public", selfDeclaredMadeForKids: false, containsSyntheticMedia: true }
+PUT  &lt;upload URL&gt;   (MP4 1080x1920, 30-60 s)</pre>
+<h2>Run log (rehearsal, run 39514869367, 20 Oct 2026)</h2>
+<pre>Run node scripts/publicar-youtube.mjs "$EP" out/reel.mp4
+Canal: 0xHacky (UCLKnviYDzy3dlWVnoxTYnuA)
+<span class="ok">Ensayo listo: el token funciona y no se subió nada.</span></pre>
+<p>No user interface, no other users: the only "user" is the channel owner, who authorized once with OAuth.</p>
+</body></html>
