@@ -1,0 +1,92 @@
+// Sube el reel a YouTube como Short con la API oficial (YouTube Data API v3, proyecto xhacky-reels).
+// Uso: node scripts/publicar-youtube.mjs <episodio.json> <video.mp4> [--ensayo]
+//
+// Variables: YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, YOUTUBE_REFRESH_TOKEN (secretos; ver scripts/youtube-token.mjs).
+// YOUTUBE_PRIVACIDAD (opcional, por defecto public). Mientras Google no audite el proyecto, YouTube deja
+// cualquier video subido por la API en privado aunque se pida public (CLAUDE.md §4c).
+// --ensayo (o PUBLICAR=false): solo comprueba el token y el canal; no sube nada.
+// Deja el resultado en out/youtube.json.
+import {readFileSync, writeFileSync, mkdirSync, statSync} from 'node:fs';
+import {join} from 'node:path';
+import {RAIZ, leerJson} from './lib.mjs';
+
+const args = process.argv.slice(2);
+const ensayo = args.includes('--ensayo') || process.env.PUBLICAR === 'false';
+const [archivo, video] = args.filter((a) => !a.startsWith('--'));
+const faltan = ['YOUTUBE_CLIENT_ID', 'YOUTUBE_CLIENT_SECRET', 'YOUTUBE_REFRESH_TOKEN'].filter((v) => !process.env[v]);
+if (faltan.length) {
+  console.log(`YouTube sin configurar (faltan ${faltan.join(', ')}): no se sube.`);
+  process.exit(0);
+}
+if (!archivo || !video) {
+  console.error('Uso: node scripts/publicar-youtube.mjs <episodio.json> <video.mp4> [--ensayo]');
+  process.exit(1);
+}
+
+const ep = leerJson(archivo);
+const token = await accessToken();
+const canal = await api('GET', 'https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true');
+console.log(`Canal: ${canal.items?.[0]?.snippet?.title ?? '?'} (${canal.items?.[0]?.id ?? '?'})`);
+mkdirSync(join(RAIZ, 'out'), {recursive: true});
+if (ensayo) {
+  writeFileSync(join(RAIZ, 'out', 'youtube.json'), JSON.stringify({ensayo: true, canal: canal.items?.[0]?.id}, null, 2));
+  console.log('Ensayo listo: el token funciona y no se subió nada.');
+  process.exit(0);
+}
+
+const privacidad = process.env.YOUTUBE_PRIVACIDAD || 'public';
+const meta = {
+  snippet: {
+    title: recortar(ep.titulo, 100),
+    description: [ep.caption.trim(), [...(ep.hashtags ?? []), '#Shorts'].join(' ')].join('\n\n'),
+    tags: (ep.hashtags ?? []).map((h) => h.replace(/^#/, '')),
+    categoryId: '28', // Ciencia y tecnología
+    defaultLanguage: 'es',
+    defaultAudioLanguage: 'es',
+  },
+  status: {privacyStatus: privacidad, selfDeclaredMadeForKids: false, containsSyntheticMedia: true},
+};
+
+// Subida reanudable: 1) se pide la URL de subida con los metadatos, 2) se manda el MP4.
+const tam = statSync(video).size;
+const inicio = await fetch('https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status', {
+  method: 'POST',
+  headers: {Authorization: `Bearer ${token}`, 'Content-Type': 'application/json; charset=UTF-8', 'X-Upload-Content-Type': 'video/mp4', 'X-Upload-Content-Length': String(tam)},
+  body: JSON.stringify(meta),
+});
+if (!inicio.ok) fallar(`YouTube (inicio de subida): ${inicio.status} ${await inicio.text()}`);
+const subida = await fetch(inicio.headers.get('location'), {method: 'PUT', headers: {'Content-Type': 'video/mp4', 'Content-Length': String(tam)}, body: readFileSync(video)});
+const datos = await subida.json().catch(() => ({}));
+if (!subida.ok || !datos.id) fallar(`YouTube (subida): ${subida.status} ${JSON.stringify(datos).slice(0, 400)}`);
+
+const resultado = {id: datos.id, url: `https://www.youtube.com/shorts/${datos.id}`, privacidad: datos.status?.privacyStatus, fecha: new Date().toISOString()};
+writeFileSync(join(RAIZ, 'out', 'youtube.json'), JSON.stringify(resultado, null, 2));
+console.log(`Subido: ${resultado.url} (${resultado.privacidad})`);
+if (resultado.privacidad !== privacidad) console.log(`Aviso: se pidió ${privacidad} y quedó ${resultado.privacidad} (proyecto sin auditar).`);
+
+async function accessToken() {
+  const r = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    body: new URLSearchParams({client_id: process.env.YOUTUBE_CLIENT_ID, client_secret: process.env.YOUTUBE_CLIENT_SECRET, refresh_token: process.env.YOUTUBE_REFRESH_TOKEN, grant_type: 'refresh_token'}),
+  });
+  const t = await r.json();
+  if (!t.access_token) fallar(`Google OAuth: ${t.error ?? r.status} ${t.error_description ?? ''}`);
+  return t.access_token;
+}
+
+async function api(metodo, url) {
+  const r = await fetch(url, {method: metodo, headers: {Authorization: `Bearer ${token}`}});
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) fallar(`YouTube ${metodo} ${url}: ${r.status} ${JSON.stringify(d.error ?? d).slice(0, 300)}`);
+  return d;
+}
+
+function recortar(t, max) {
+  const s = String(t ?? '').replace(/[<>]/g, '').trim();
+  return s.length <= max ? s : s.slice(0, max - 1).trim();
+}
+
+function fallar(msg) {
+  console.error(msg);
+  process.exit(1);
+}
