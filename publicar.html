@@ -100,12 +100,9 @@ async function publicar(){
     allow_comment:$('#cm').checked,allow_duet:$('#du').checked,allow_stitch:$('#st').checked,
     brand_organic:$('#cc').checked&&$('#yb').checked,brand_content:$('#cc').checked&&$('#bc').checked,is_aigc:$('#aigc').checked})});
   const d=await r.json();if(d.error){$('#status').textContent='Error: '+d.error;$('#pub').disabled=false;return;}
-  $('#status').textContent='Uploaded. publish_id: '+d.publishId+'\
-Status: checking…';
+  $('#status').textContent='Uploaded. publish_id: '+d.publishId+'\nStatus: checking…';
   const t=setInterval(async()=>{const e=await (await fetch(API+'/api/estado?id='+encodeURIComponent(d.publishId))).json();
-    $('#status').textContent='publish_id: '+d.publishId+'\
-Status: '+(e.status||e.error)+(e.fail_reason?' ('+e.fail_reason+')':'')+(e.status==='PUBLISH_COMPLETE'?'\
-Done: the video is on your TikTok profile.':'');
+    $('#status').textContent='publish_id: '+d.publishId+'\nStatus: '+(e.status||e.error)+(e.fail_reason?' ('+e.fail_reason+')':'')+(e.status==='PUBLISH_COMPLETE'?'\nDone: the video is on your TikTok profile.':'');
     if(['PUBLISH_COMPLETE','FAILED'].includes(e.status)||e.error){clearInterval(t);$('#pub').disabled=false;}},5000);
 }
 async function guardar(){const d=await (await fetch(API+'/api/guardar',{method:'POST'})).json();$('#saved').textContent=d.ok?'Saved as GitHub secrets.':('Error: '+d.error);}
