@@ -3,10 +3,15 @@
 <p id="m">Copia este código en la terminal donde se ejecuta "0xhacky publicador" y cierra esta pestaña.</p>
 <pre id="c" style="white-space:pre-wrap;word-break:break-all;background:#2B3038;padding:12px;border-radius:8px"></pre>
 <script>
-const p=new URLSearchParams(location.search);
-// Si la autorización la pidió la herramienta local (state "local-<puerto>-..."), le devolvemos el código a esa máquina.
+const p=new URLSearchParams(location.search),m=document.getElementById('m'),c=document.getElementById('c');
+// Si la autorización la pidió el servicio local de 0xhacky publicador (state "local-<puerto>-..."), le pasamos el código.
 const local=/^local-(\d{4,5})-[a-f0-9]+$/.exec(p.get('state')||'');
-if(local&&p.get('code')){document.getElementById('m').textContent='Volviendo a 0xhacky publicador...';location.replace('http://127.0.0.1:'+local[1]+'/callback'+location.search);}
-else document.getElementById('c').textContent=p.get('code')?p.get('code'):('Sin código: '+(p.get('error_description')||p.get('error')||''));
+if(local&&p.get('code')){
+  m.textContent='Connecting to 0xhacky publicador...';c.style.display='none';
+  fetch('http://127.0.0.1:'+local[1]+'/callback'+location.search).then(r=>r.json()).then(d=>{
+    if(d.volver)location.replace(d.volver);else m.textContent=d.mensaje||d.error||'';
+  }).catch(()=>{m.textContent='0xhacky publicador is not running on this computer.';});
+}
+else c.textContent=p.get('code')?p.get('code'):('Sin código: '+(p.get('error_description')||p.get('error')||''));
 </script>
 <p><a href="index.html">Inicio</a></p></main></body></html>

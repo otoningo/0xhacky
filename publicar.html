@@ -1,0 +1,115 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>0xhacky publicador · TikTok</title>
+<style>
+:root{--bg:#1C1F24;--card:#2B3038;--line:#3a404a;--txt:#E6E9EE;--muted:#8A94A3;--acc:#5EC8D8;--ok:#3DD68C;--bad:#FF5C6C}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.5 system-ui,Segoe UI,sans-serif}
+header{display:flex;align-items:center;gap:12px;padding:14px 24px;border-bottom:1px solid var(--line)}
+header b{font-family:Consolas,monospace;color:var(--acc)}header .sp{flex:1}
+main{max-width:1060px;margin:0 auto;padding:24px;display:grid;grid-template-columns:320px 1fr;gap:24px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px}
+h2{margin:0 0 12px;font-size:17px}label{display:block;margin:10px 0 4px;color:var(--muted);font-size:13px}
+select,textarea{width:100%;background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:9px;font:inherit}
+textarea{min-height:130px;resize:vertical}video{width:100%;border-radius:10px;background:#000;max-height:520px}
+.row{display:flex;align-items:center;gap:8px;margin:6px 0}.row input{width:18px;height:18px}
+.row.off{opacity:.45}.hint{color:var(--muted);font-size:13px}.warn{color:#F2B84B;font-size:13px}
+button,.btn{background:var(--acc);color:#10161c;border:0;border-radius:8px;padding:11px 18px;font-weight:700;cursor:pointer;text-decoration:none;display:inline-block}
+button:disabled{opacity:.4;cursor:not-allowed}button.sec{background:transparent;color:var(--txt);border:1px solid var(--line)}
+.creator{display:flex;align-items:center;gap:10px}.creator img{width:44px;height:44px;border-radius:50%}
+.consent a{color:var(--acc)}#status{margin-top:12px;font-family:Consolas,monospace;font-size:13px;white-space:pre-wrap}
+.center{grid-column:1/-1;text-align:center;padding:60px 20px}
+</style></head><body>
+<header><b>0xhacky publicador</b><span>· TikTok</span><span class="sp"></span><span id="who" class="hint"></span></header>
+<main id="app"><div class="center hint">Loading…</div></main>
+<script>
+// Habla con el servicio de 0xhacky publicador que corre en la computadora del dueño (scripts/tiktok-panel.mjs).
+const API='http://127.0.0.1:3901';
+const $=s=>document.querySelector(s);
+const NOMBRES={PUBLIC_TO_EVERYONE:'Everyone',MUTUAL_FOLLOW_FRIENDS:'Friends',FOLLOWER_OF_CREATOR:'Followers',SELF_ONLY:'Only me'};
+let cuenta,lista,reel;
+async function iniciar(){
+  cuenta=await (await fetch(API+'/api/cuenta')).json();
+  if(!cuenta.conectado){
+    $('#app').innerHTML='<div class="card center"><h2>Connect your TikTok account</h2><p class="hint">0xhacky publicador posts the short videos of @0xhacky to TikTok.<br>You will be asked to log in to TikTok and authorize: basic profile info, video upload and video publish.</p><button onclick="entrar()">Continue with TikTok</button></div>';
+    return;
+  }
+  const c=cuenta.creador;
+  $('#who').innerHTML='<a class="hint" href="#" onclick="salir();return false">Disconnect</a>';
+  if(c.error){$('#app').innerHTML='<div class="card center"><h2>This account cannot post right now</h2><p class="warn">'+c.error+'</p><p class="hint">Please try again later.</p></div>';return;}
+  lista=await (await fetch(API+'/api/reels')).json();
+  $('#app').innerHTML=`
+  <section class="card"><h2>Video</h2>
+    <label>Choose a video</label><select id="reel">${lista.map(r=>'<option value="'+r.id+'">'+r.titulo+'</option>').join('')}</select>
+    <label>Preview</label><video id="prev" controls playsinline></video>
+    <div id="dur" class="hint"></div></section>
+  <section class="card">
+    <div class="creator"><img src="${c.creator_avatar_url||''}" alt=""><div><div class="hint">Posting to TikTok as</div><b>${c.creator_nickname}</b> <span class="hint">@${c.creator_username}</span></div></div>
+    <label for="title">Title</label><textarea id="title" maxlength="2200"></textarea>
+    <label for="priv">Who can view this video</label>
+    <select id="priv"><option value="" disabled selected>Select privacy</option>${c.privacy_level_options.map(p=>'<option value="'+p+'">'+(NOMBRES[p]||p)+'</option>').join('')}</select>
+    <div id="privhint" class="hint"></div>
+    <label>Allow users to</label>
+    <div class="row ${c.comment_disabled?'off':''}"><input type="checkbox" id="cm" ${c.comment_disabled?'disabled':''}><label for="cm" style="margin:0">Comment</label>${c.comment_disabled?'<span class="hint">(turned off in your TikTok settings)</span>':''}</div>
+    <div class="row ${c.duet_disabled?'off':''}"><input type="checkbox" id="du" ${c.duet_disabled?'disabled':''}><label for="du" style="margin:0">Duet</label>${c.duet_disabled?'<span class="hint">(turned off in your TikTok settings)</span>':''}</div>
+    <div class="row ${c.stitch_disabled?'off':''}"><input type="checkbox" id="st" ${c.stitch_disabled?'disabled':''}><label for="st" style="margin:0">Stitch</label>${c.stitch_disabled?'<span class="hint">(turned off in your TikTok settings)</span>':''}</div>
+    <label>Content disclosure</label>
+    <div class="row"><input type="checkbox" id="aigc" checked><label for="aigc" style="margin:0">AI-generated content</label><span class="hint">(adds TikTok's AI-generated label)</span></div>
+    <div class="row"><input type="checkbox" id="cc"><label for="cc" style="margin:0">Disclose video content</label></div>
+    <div id="ccbox" style="display:none;margin-left:26px">
+      <p class="hint" style="margin:4px 0">Turn on to disclose that this video promotes goods or services in exchange for something of value. Your video could promote yourself, a third party, or both.</p>
+      <div class="row"><input type="checkbox" id="yb"><label for="yb" style="margin:0">Your brand</label></div>
+      <p class="hint" style="margin:0 0 6px 26px">You are promoting yourself or your own business.</p>
+      <div class="row" id="bcrow"><input type="checkbox" id="bc"><label for="bc" style="margin:0">Branded content</label></div>
+      <p class="hint" style="margin:0 0 6px 26px">You are promoting another brand or a third party.</p>
+      <div id="cclabel" class="warn"></div>
+    </div>
+    <p class="consent hint" id="consent"></p>
+    <span id="pubwrap"><button id="pub" disabled>Post to TikTok</button></span>
+    <p class="hint">After you post, it may take a few minutes for the video to process and appear on your profile.</p>
+    <div id="status"></div>
+    <hr style="border-color:var(--line);margin:18px 0"><button class="sec" id="save">Save access for the workflow</button> <span id="saved" class="hint"></span>
+  </section>`;
+  $('#reel').onchange=elegir;elegir();
+  ['priv','cc','yb','bc'].forEach(i=>$('#'+i).onchange=actualizar);
+  $('#pub').onclick=publicar;$('#save').onclick=guardar;actualizar();
+}
+function elegir(){
+  reel=lista.find(r=>r.id===$('#reel').value);$('#title').value=reel.texto;$('#prev').src=reel.video;$('#prev').poster=reel.portada||'';
+  $('#prev').onloadedmetadata=()=>{const d=$('#prev').duration,max=cuenta.creador.max_video_post_duration_sec;
+    $('#dur').innerHTML='Duration: '+d.toFixed(1)+' s'+(max&&d>max?' <span class="warn">(longer than the '+max+' s allowed for this account)</span>':'');actualizar();};
+}
+function actualizar(){
+  const cc=$('#cc').checked,yb=$('#yb').checked,bc=$('#bc').checked,priv=$('#priv').value;
+  $('#ccbox').style.display=cc?'block':'none';
+  // Branded content can't be private.
+  const solo=[...$('#priv').options].find(o=>o.value==='SELF_ONLY');
+  if(solo){solo.disabled=cc&&bc;solo.title=cc&&bc?'Branded content visibility cannot be set to private.':'';}
+  $('#bc').disabled=priv==='SELF_ONLY';$('#bcrow').title=priv==='SELF_ONLY'?'Branded content visibility cannot be set to private.':'';
+  $('#privhint').textContent=priv==='SELF_ONLY'?'Branded content visibility cannot be set to private.':'';
+  $('#cclabel').textContent=!cc?'':(bc?"Your video will be labeled as 'Paid partnership'":yb?"Your video will be labeled as 'Promotional content'":'');
+  const mu='<a href="https://www.tiktok.com/legal/page/global/music-usage-confirmation/en" target="_blank">Music Usage Confirmation</a>';
+  const bp='<a href="https://www.tiktok.com/legal/page/global/bc-policy/en" target="_blank">Branded Content Policy</a>';
+  $('#consent').innerHTML=cc&&bc?"By posting, you agree to TikTok's "+bp+' and '+mu:"By posting, you agree to TikTok's "+mu;
+  const d=$('#prev').duration,max=cuenta.creador.max_video_post_duration_sec;
+  const falta=cc&&!yb&&!bc;
+  $('#pub').disabled=!priv||falta||(max&&d>max);
+  $('#pubwrap').title=falta?'You need to indicate if your content promotes yourself, a third party, or both.':(!priv?'Select who can view this video.':'');
+}
+async function publicar(){
+  $('#pub').disabled=true;$('#status').textContent='Uploading video to TikTok…';
+  const r=await fetch(API+'/api/publicar',{method:'POST',body:JSON.stringify({id:reel.id,title:$('#title').value,privacy_level:$('#priv').value,
+    allow_comment:$('#cm').checked,allow_duet:$('#du').checked,allow_stitch:$('#st').checked,
+    brand_organic:$('#cc').checked&&$('#yb').checked,brand_content:$('#cc').checked&&$('#bc').checked,is_aigc:$('#aigc').checked})});
+  const d=await r.json();if(d.error){$('#status').textContent='Error: '+d.error;$('#pub').disabled=false;return;}
+  $('#status').textContent='Uploaded. publish_id: '+d.publishId+'\
+Status: checking…';
+  const t=setInterval(async()=>{const e=await (await fetch(API+'/api/estado?id='+encodeURIComponent(d.publishId))).json();
+    $('#status').textContent='publish_id: '+d.publishId+'\
+Status: '+(e.status||e.error)+(e.fail_reason?' ('+e.fail_reason+')':'')+(e.status==='PUBLISH_COMPLETE'?'\
+Done: the video is on your TikTok profile.':'');
+    if(['PUBLISH_COMPLETE','FAILED'].includes(e.status)||e.error){clearInterval(t);$('#pub').disabled=false;}},5000);
+}
+async function guardar(){const d=await (await fetch(API+'/api/guardar',{method:'POST'})).json();$('#saved').textContent=d.ok?'Saved as GitHub secrets.':('Error: '+d.error);}
+async function entrar(){location.href=(await (await fetch(API+'/api/login')).json()).url;}
+async function salir(){await fetch(API+'/api/logout',{method:'POST'});location.reload();}
+iniciar().catch(()=>{$('#app').innerHTML='<div class="card center"><h2>0xhacky publicador is not running</h2><p class="hint">Start the publisher service on this computer and reload the page.</p></div>';});
+</script></body></html>
