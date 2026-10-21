@@ -1,6 +1,12 @@
 <!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Autorización · 0xhacky</title><link rel="stylesheet" href="estilo.css"></head><body><main>
 <h1>Autorización recibida</h1>
-<p>Copia este código en la terminal donde se ejecuta "0xhacky publicador" y cierra esta pestaña.</p>
+<p id="m">Copia este código en la terminal donde se ejecuta "0xhacky publicador" y cierra esta pestaña.</p>
 <pre id="c" style="white-space:pre-wrap;word-break:break-all;background:#2B3038;padding:12px;border-radius:8px"></pre>
-<script>const p=new URLSearchParams(location.search);document.getElementById('c').textContent=p.get('code')?p.get('code'):('Sin código: '+(p.get('error_description')||p.get('error')||''));</script>
+<script>
+const p=new URLSearchParams(location.search);
+// Si la autorización la pidió la herramienta local (state "local-<puerto>-..."), le devolvemos el código a esa máquina.
+const local=/^local-(\d{4,5})-[a-f0-9]+$/.exec(p.get('state')||'');
+if(local&&p.get('code')){document.getElementById('m').textContent='Volviendo a 0xhacky publicador...';location.replace('http://127.0.0.1:'+local[1]+'/callback'+location.search);}
+else document.getElementById('c').textContent=p.get('code')?p.get('code'):('Sin código: '+(p.get('error_description')||p.get('error')||''));
+</script>
 <p><a href="index.html">Inicio</a></p></main></body></html>
